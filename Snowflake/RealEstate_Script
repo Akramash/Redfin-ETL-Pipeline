@@ -1,0 +1,69 @@
+-- Drop and create the database
+DROP DATABASE IF EXISTS redfin_database_1;
+CREATE DATABASE redfin_database_1;
+
+-- Create schema
+CREATE SCHEMA redfin_schema;
+
+-- Create or replace table with updated schema
+CREATE OR REPLACE TABLE redfin_database_1.redfin_schema.redfin_table (
+    period_duration INT,
+    city STRING,
+    state STRING,
+    property_type STRING,
+    median_sale_price FLOAT,
+    median_ppsf FLOAT,
+    homes_sold FLOAT,
+    inventory FLOAT,
+    months_of_supply FLOAT,
+    median_dom FLOAT,
+    sold_above_list FLOAT,
+    period_end_yr INT,
+    period_end_month STRING
+);
+
+-- Query the table to ensure it's created
+SELECT *
+FROM redfin_database_1.redfin_schema.redfin_table
+LIMIT 10;
+
+-- Count the rows in the table
+SELECT COUNT(*) FROM redfin_database_1.redfin_schema.redfin_table;
+
+TRUNCATE TABLE redfin_database_1.redfin_schema.redfin_table;
+
+
+-- Create file format schema
+CREATE SCHEMA file_format_schema;
+
+-- Create Parquet file format
+CREATE OR REPLACE FILE FORMAT redfin_database_1.file_format_schema.format_parquet
+    TYPE = 'PARQUET';
+
+-- Create staging schema
+CREATE SCHEMA external_stage_schema;
+
+-- Create stage for Parquet files
+CREATE OR REPLACE STAGE redfin_database_1.external_stage_schema.redfin_ext_stage_parquet 
+    URL = 's3://redfin-data-project-ak/transformed-zone/'
+    CREDENTIALS = (aws_key_id='****' aws_secret_key='****')
+    FILE_FORMAT = redfin_database_1.file_format_schema.format_parquet;
+
+-- List files in the stage to verify
+LIST @redfin_database_1.external_stage_schema.redfin_ext_stage_parquet;
+
+-- Create schema for Snowpipe
+CREATE OR REPLACE SCHEMA redfin_database_1.snowpipe_schema;
+
+-- Create Snowpipe to load data from the Parquet stage into the table with error handling
+CREATE OR REPLACE PIPE redfin_database_1.snowpipe_schema.redfin_snowpipe
+    AUTO_INGEST = TRUE
+    AS 
+    COPY INTO redfin_database_1.redfin_schema.redfin_table
+    FROM @redfin_database_1.external_stage_schema.redfin_ext_stage_parquet
+    FILE_FORMAT = (TYPE = PARQUET)
+    MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE
+    ON_ERROR = 'SKIP_FILE';
+
+-- Describe the pipe to ensure it's created correctly
+DESC PIPE redfin_database_1.snowpipe_schema.redfin_snowpipe;
