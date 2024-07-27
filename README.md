@@ -6,6 +6,8 @@ This repository contains the ETL (Extract, Transform, Load) pipeline designed to
 
 ## System Architecture
 
+![ETL Pipeline Architecture](Redfin_ETL.png)
+
 ### Data Flow
 
 1. **Data Ingestion**: Data is fetched from Redfin's public data source and stored in an S3 bucket.
